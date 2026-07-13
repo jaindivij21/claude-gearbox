@@ -5,11 +5,20 @@ implementation, and more — from inside Claude, **per session**. Off by default
 on in a session, Claude behaves exactly as normal.
 
 ## Use it (all from inside Claude — no shell, no separate tool)
-- `/gearbox on` — turn it on for this session.
-- `/gearbox` — show your current gears.
-- `/gearbox set <part> <model> [effort]` — e.g. `/gearbox set implementation opus xhigh`.
-- `/gearbox turbo <part>` — run that part extra hard (**turbo = ultracode**: xhigh + decompose → fan out → verify).
-- `/gearbox add <part>` · `/gearbox rm <part>` · `/gearbox preset <eco|balanced|full-send>` · `/gearbox off`.
+`/gearbox` shows a driveshaft console; the knob (◉) sits in each part's current gear:
+
+```
+  planning        ①──②──③──◉──⑤  sonnet    rev ▐▐░░░ medium
+  implementation  ①──◉──③──④──⑤  opus[1m]  rev ▐▐▐▐░ xhigh   ⊙ TURBO
+  gears →  ①fable  ②opus[1m]  ③opus  ④sonnet  ⑤haiku   (① strongest · costliest)
+```
+
+Drive it:
+- `/gearbox on` — start it for this session · `/gearbox off` — stop.
+- `/gearbox shift <part> up|down` — move the gear (model); **up = stronger** (toward fable).
+- `/gearbox rev <part> up|down` — throttle the effort; **up = more** (toward max).
+- `/gearbox turbo <part>` — **turbo = ultracode** (xhigh + decompose → fan out → verify).
+- `/gearbox set <part> <model> [effort]` · `add <part>` · `rm <part>` · `preset <eco|balanced|full-send>`.
 
 Change a gear any time; it applies on your **next message**. Each Claude session is independent —
 turning it on in one shell doesn't touch another.

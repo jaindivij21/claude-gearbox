@@ -87,31 +87,45 @@ function findAspect(st, name) {
   return st.aspects.find((a) => a.id.toLowerCase() === q) || st.aspects.find((a) => a.id.toLowerCase().startsWith(q));
 }
 function effIdx(a) { return EFFORTS.indexOf(a.ultracode ? "xhigh" : a.effort); }
+function modelIdx(m) { const i = MODEL_NAMES.indexOf(m); return i < 0 ? 3 : i; }
+const GEARNUM = ["①", "②", "③", "④", "⑤"];
 
+// The console: a driveshaft per part — a shaft with 5 gear detents, the shift-knob (◉)
+// sitting in the current gear, a rev meter for effort, and a turbo lamp.
 function render(sid, st, note) {
   const L = [];
   const shortSid = String(sid).slice(0, 8);
+  const RULE = "──────────────────────────────────────────────────────────────────────────";
   if (!st || !st.on) {
-    L.push(`⚙  GEARBOX — session ${shortSid} — OFF`);
-    L.push("Claude is running normally. Turn on with:  /gearbox on");
-    if (note) L.push("", note);
+    L.push(RULE);
+    L.push(`  ⚙  G E A R B O X      session ${shortSid}   ·   OFF`);
+    L.push(RULE);
+    L.push("");
+    L.push("Idle — Claude is running normally. Start it with:   /gearbox on");
+    if (note) L.push("", "» " + note);
     return L.join("\n");
   }
-  L.push(`⚙  GEARBOX — session ${shortSid} — ON — setup: ${st.name}`);
+  L.push(RULE);
+  L.push(`  ⚙  G E A R B O X      session ${shortSid}   ·   ON   ·   setup: ${st.name}`);
+  L.push(RULE);
+  L.push("  gears →  ①fable  ②opus[1m]  ③opus  ④sonnet  ⑤haiku      (① strongest · costliest)");
   L.push("");
-  L.push("  PART              MODEL       EFFORT            TURBO");
   for (const a of st.aspects) {
+    const mi = modelIdx(a.model);
+    let shaft = "";
+    for (let i = 0; i < MODELS.length; i++) { shaft += i === mi ? "◉" : GEARNUM[i]; if (i < MODELS.length - 1) shaft += "──"; }
     const ei = effIdx(a);
-    const bar = "▓".repeat(ei + 1) + "░".repeat(EFFORTS.length - ei - 1);
+    const rev = "▐".repeat(ei + 1) + "░".repeat(EFFORTS.length - ei - 1);
     const eff = a.ultracode ? "xhigh" : a.effort;
-    const turbo = a.ultracode ? "● ultracode" : "—";
-    L.push(`  ${pad(a.id, 16)}  ${pad(a.model, 10)}  ${bar} ${pad(eff, 6)}   ${turbo}`);
+    const turbo = a.ultracode ? "  ⊙ TURBO" : "";
+    L.push(`  ${pad(a.id, 15)} ${shaft}  ${pad(a.model, 9)} rev ${rev} ${pad(eff, 6)}${turbo}`);
   }
   L.push("");
-  L.push("Models, most→least powerful:  fable · opus[1m] · opus · sonnet · haiku");
-  L.push("Effort, low→high:  low · medium · high · xhigh · max   (turbo = ultracode = xhigh + orchestrate)");
-  L.push("Change:  /gearbox set <part> <model> [effort]  ·  /gearbox turbo <part>  ·  /gearbox add <part>  ·  /gearbox off");
-  if (note) L.push("", note);
+  L.push("  SHIFT  /gearbox shift <part> up|down     move the gear (up = stronger, toward fable)");
+  L.push("  REV    /gearbox rev <part> up|down       throttle the effort (up = more, toward max)");
+  L.push("  TURBO  /gearbox turbo <part>             ultracode: xhigh + decompose → fan out → verify");
+  L.push("  more   set <part> <model> [effort] · add <part> · rm <part> · preset <eco|balanced|full-send> · off");
+  if (note) L.push("", "» " + note);
   return L.join("\n");
 }
 function pad(s, n) { s = String(s); return s.length >= n ? s : s + " ".repeat(n - s.length); }
@@ -157,6 +171,27 @@ try {
       if (!EFFORTS.includes(rest[1])) { note = `Unknown effort. Pick: ${EFFORTS.join(", ")}.`; break; }
       a.effort = rest[1]; a.ultracode = false; save(sid, st); note = `Set ${a.id} effort → ${rest[1]}.`; break;
     }
+    case "shift": {
+      if (!st) st = seedProfile();
+      const a = findAspect(st, rest[0]);
+      if (!a) { note = `No part “${rest[0]}”. Add it with: /gearbox add ${rest[0] || "<part>"}`; break; }
+      const dir = (rest[1] || "").toLowerCase();
+      if (dir !== "up" && dir !== "down") { note = "Which way? /gearbox shift " + a.id + " up   (stronger)  or  down (cheaper)."; break; }
+      const mi = modelIdx(a.model);
+      const ni = dir === "up" ? Math.max(0, mi - 1) : Math.min(MODELS.length - 1, mi + 1);
+      if (ni === mi) { note = `${a.id} is already in ${dir === "up" ? "top" : "lowest"} gear (${a.model}).`; break; }
+      a.model = MODELS[ni].v; save(sid, st); note = `Shifted ${a.id} ${dir} → ${a.model}.`; break;
+    }
+    case "rev": {
+      if (!st) st = seedProfile();
+      const a = findAspect(st, rest[0]);
+      if (!a) { note = `No part “${rest[0]}”.`; break; }
+      const dir = (rest[1] || "").toLowerCase();
+      if (dir !== "up" && dir !== "down") { note = "Which way? /gearbox rev " + a.id + " up   (more effort)  or  down."; break; }
+      const cur = EFFORTS.indexOf(a.ultracode ? "xhigh" : a.effort);
+      const ni = dir === "up" ? Math.min(EFFORTS.length - 1, cur + 1) : Math.max(0, cur - 1);
+      a.ultracode = false; a.effort = EFFORTS[ni]; save(sid, st); note = `Revved ${a.id} ${dir} → ${a.effort}.`; break;
+    }
     case "turbo": {
       if (!st) st = seedProfile();
       const a = findAspect(st, rest[0]);
@@ -178,7 +213,7 @@ try {
       st.aspects = st.aspects.filter((x) => x !== a); save(sid, st); note = `Removed ${a.id}.`; break;
     }
     case "help":
-      note = "Commands: on · off · show · set <part> <model> [effort] · effort <part> <level> · turbo <part> [on|off] · add <part> · rm <part> · preset <eco|balanced|full-send> · reset"; break;
+      note = "Drive it: shift <part> up|down (model) · rev <part> up|down (effort) · turbo <part>. Also: on · off · set <part> <model> [effort] · add <part> · rm <part> · preset <eco|balanced|full-send> · reset"; break;
     default:
       note = `Unknown command “${cmd}”. Try /gearbox help.`;
   }

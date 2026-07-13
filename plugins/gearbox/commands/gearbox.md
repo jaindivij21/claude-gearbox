@@ -1,6 +1,6 @@
 ---
 description: Set which model & effort Claude uses for each part of a task, just for this session.
-argument-hint: [on | off | set <part> <model> [effort] | turbo <part> | add <part> | rm <part> | preset <name>]
+argument-hint: [on | off | shift <part> up|down | rev <part> up|down | turbo <part> | set <part> <model> [effort] | add | rm | preset <name>]
 ---
 !`node "${CLAUDE_PLUGIN_ROOT}/bin/gearbox-cli.mjs" "${CLAUDE_SESSION_ID}" $ARGUMENTS`
 

@@ -9,17 +9,20 @@ shell is independent), and it's **off by default** — until you turn it on in a
 exactly as if the plugin weren't installed.
 
 ```
-⚙  GEARBOX — session a1b2c3d4 — ON — setup: balanced
+──────────────────────────────────────────────────────────────────────
+  ⚙  G E A R B O X      session a1b2c3d4   ·   ON   ·   setup: balanced
+──────────────────────────────────────────────────────────────────────
+  gears →  ①fable  ②opus[1m]  ③opus  ④sonnet  ⑤haiku    (① strongest · costliest)
 
-  PART              MODEL       EFFORT            TURBO
-  planning          sonnet      ▓▓░░░ medium      —
-  exploration       haiku       ▓░░░░ low         —
-  research          sonnet      ▓▓░░░ medium      —
-  implementation    opus[1m]    ▓▓▓▓░ xhigh       ● ultracode
-  code review       opus        ▓▓▓░░ high        —
-
-Models, most→least powerful:  fable · opus[1m] · opus · sonnet · haiku
+  planning        ①──②──③──◉──⑤  sonnet    rev ▐▐░░░ medium
+  exploration     ①──②──③──④──◉  haiku     rev ▐░░░░ low
+  research        ①──②──③──◉──⑤  sonnet    rev ▐▐░░░ medium
+  implementation  ①──◉──③──④──⑤  opus[1m]  rev ▐▐▐▐░ xhigh   ⊙ TURBO
+  code review     ①──②──◉──④──⑤  opus      rev ▐▐▐░░ high
 ```
+
+The knob `◉` sits in each part's current gear. You shift it with commands (Claude's terminal
+can't host a live drag UI), but the console reads like a real gearbox.
 
 ## Install
 
@@ -32,11 +35,11 @@ That's it — no shell aliases, no separate app. Everything is `/gearbox` inside
 
 ## Use
 
-- `/gearbox on` — turn it on for **this** session.
-- `/gearbox` — show your gears.
-- `/gearbox set <part> <model> [effort]` — e.g. `/gearbox set implementation opus xhigh`.
+- `/gearbox on` — start it for **this** session · `/gearbox` — show the console · `/gearbox off` — stop.
+- `/gearbox shift <part> up|down` — move the gear (model); **up = stronger** (toward fable). e.g. `/gearbox shift implementation up`.
+- `/gearbox rev <part> up|down` — throttle the effort; **up = more** (toward max).
 - `/gearbox turbo <part>` — run that part extra hard (**turbo = ultracode**: xhigh + decompose → fan out → verify).
-- `/gearbox add <part>` · `/gearbox rm <part>` · `/gearbox preset <eco|balanced|full-send>` · `/gearbox off`.
+- Also: `/gearbox set <part> <model> [effort]` · `add <part>` · `rm <part>` · `preset <eco|balanced|full-send>`.
 
 Then just work. Claude runs each part in the gear you set; change a gear and it applies on your next
 message. Another Claude shell is unaffected.
