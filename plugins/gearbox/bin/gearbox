@@ -1,0 +1,54 @@
+#!/bin/sh
+# gearbox — turn the feature on/off and open the terminal tuner.
+# This is the opt-in switch, not a per-task command. Everyday work needs nothing.
+#
+#   gearbox tune      open the gear-shifter in your terminal (edit + save profile.json)
+#   gearbox on        turn Gearbox on for future sessions (persistent)
+#   gearbox off       turn it off and remove its sub-agents (back to normal)
+#   gearbox status    show whether it's on and which setup is active
+#   gearbox edit      open profile.json in your $EDITOR
+#
+# For one session only, launch Claude with:  GEARBOX=1 claude
+
+DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+GB="$HOME/.claude/gearbox"
+AG="$HOME/.claude/agents"
+PROFILE="$GB/profile.json"
+
+clean_agents() {
+  [ -d "$AG" ] || return 0
+  for f in "$AG"/*.md; do
+    [ -f "$f" ] || continue
+    grep -q "gearbox:managed" "$f" 2>/dev/null && rm -f "$f"
+  done
+}
+
+case "$1" in
+  tune|ui)
+    exec node "$DIR/gearbox-tune.mjs"
+    ;;
+  on)
+    mkdir -p "$GB"; touch "$GB/ON"
+    echo "Gearbox ON. New sessions use the gears in profile.json."
+    echo "Tip: start a fresh Claude session (or /clear) so the sub-agents register."
+    ;;
+  off)
+    rm -f "$GB/ON"; clean_agents
+    echo "Gearbox OFF. Claude runs normally now."
+    ;;
+  status)
+    if [ -f "$GB/ON" ]; then echo "state:   ON (persistent)"; else echo "state:   OFF  (one session: GEARBOX=1 claude)"; fi
+    name=$(node -e 'try{console.log(require(process.argv[1]).name||"?")}catch(e){console.log("(no profile.json yet)")}' "$PROFILE" 2>/dev/null)
+    echo "profile: $name"
+    if [ -d "$AG" ]; then
+      n=$(grep -l "gearbox:managed" "$AG"/*.md 2>/dev/null | wc -l | tr -d ' ')
+      echo "agents:  $n gearbox sub-agent(s) on disk"
+    fi
+    ;;
+  edit)
+    "${EDITOR:-vi}" "$PROFILE"
+    ;;
+  *)
+    echo "usage: gearbox {tune|on|off|status|edit}"
+    ;;
+esac

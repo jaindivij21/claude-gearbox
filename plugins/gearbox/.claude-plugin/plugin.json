@@ -1,0 +1,10 @@
+{
+  "name": "gearbox",
+  "version": "0.1.0",
+  "description": "Pick which model and effort Claude uses for each part of a task (planning, research, implementation, and more). A terminal gear-shifter; opt-in per session; invisible when off.",
+  "author": {
+    "name": "Divij Jain"
+  },
+  "homepage": "https://github.com/jaindivij21/claude-gearbox",
+  "hooks": "./hooks/hooks.json"
+}

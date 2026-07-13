@@ -1,0 +1,17 @@
+{
+  "name": "claude-gearbox",
+  "owner": {
+    "name": "Divij Jain"
+  },
+  "description": "Gearbox — pick the model & effort Claude uses for each part of a task.",
+  "plugins": [
+    {
+      "name": "gearbox",
+      "source": "./plugins/gearbox",
+      "description": "A terminal gear-shifter for per-aspect model + effort. Opt-in per session; invisible when off.",
+      "category": "productivity",
+      "license": "MIT",
+      "keywords": ["model", "effort", "cost", "subagents", "hooks", "tui"]
+    }
+  ]
+}

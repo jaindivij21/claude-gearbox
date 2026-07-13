@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "name": "balanced",
+  "aspects": [
+    {
+      "id": "planning",
+      "agent": "gearbox-planner",
+      "model": "fable",
+      "effort": "low",
+      "ultracode": false,
+      "tools": ["Read", "Grep", "Glob", "WebSearch", "WebFetch"],
+      "description": "Planning, architecture, and writing an implementation plan before code is written. Use PROACTIVELY whenever the task needs an approach designed or steps laid out before editing code.",
+      "instructions": "You are the planning gear. Explore the codebase read-only, weigh approaches, and return a concise, ordered implementation plan naming the key files to change and any risks. Do not edit files."
+    },
+    {
+      "id": "exploration",
+      "agent": "gearbox-explorer",
+      "model": "haiku",
+      "effort": "low",
+      "ultracode": false,
+      "tools": ["Read", "Grep", "Glob", "Bash"],
+      "description": "Searching and reading the codebase to locate things. Use PROACTIVELY for file/code search and quick multi-file lookups.",
+      "instructions": "You are the exploration gear. Search broadly, read only what matters, and report concise findings with file:line references. Read-only."
+    },
+    {
+      "id": "research",
+      "agent": "gearbox-researcher",
+      "model": "sonnet",
+      "effort": "medium",
+      "ultracode": false,
+      "tools": ["Read", "Grep", "Glob", "WebSearch", "WebFetch"],
+      "description": "Multi-source and web deep-research on open questions. Use PROACTIVELY for research that needs several sources cross-checked.",
+      "instructions": "You are the research gear. Investigate the question across sources, cross-check, and return a short cited synthesis. Read-only."
+    },
+    {
+      "id": "implementation",
+      "agent": "gearbox-implementer",
+      "model": "opus[1m]",
+      "effort": "xhigh",
+      "ultracode": true,
+      "tools": null,
+      "description": "Writing and editing code to carry out an approved plan. Use PROACTIVELY for the implementation part of a task.",
+      "instructions": "You are the implementation gear. Carry out the approved plan end to end: make the edits, follow the surrounding code's conventions, and run the checks."
+    },
+    {
+      "id": "code review",
+      "agent": "gearbox-reviewer",
+      "model": "opus",
+      "effort": "high",
+      "ultracode": false,
+      "tools": ["Read", "Grep", "Glob", "Bash"],
+      "description": "Reviewing a diff for correctness bugs and issues. Use PROACTIVELY to review changes before they ship.",
+      "instructions": "You are the review gear. Review the change for correctness bugs, edge cases, and risks; report the most severe findings first with file:line."
+    }
+  ]
+}
