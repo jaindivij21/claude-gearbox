@@ -18,11 +18,9 @@ are untouched. **Update:** `/plugin marketplace update claude-gearbox` → `/plu
 ```
 
 Drive it:
-- `/gearbox on` — start it for this session · `/gearbox off` — stop.
-- `/gearbox shift <part> up|down` — move the gear (model); **up = stronger** (toward fable).
-- `/gearbox rev <part> up|down` — throttle the effort; **up = more** (toward max).
-- `/gearbox turbo <part>` — **turbo = ultracode** (xhigh + decompose → fan out → verify).
-- `/gearbox set <part> <model> [effort]` · `add <part>` · `rm <part>` · `preset <eco|balanced|full-send>`.
+- `/gearbox` — show the console · `/gearbox on` — start it for this session · `/gearbox off` — stop.
+- **To change a gear, just tell Claude in plain words** — *"put implementation on fable"*, *"run
+  research cheaper"*, *"turbo on code review"*, *"add a debugging part"*. No commands to learn.
 
 Change a gear any time; it applies on your **next message**. Each Claude session is independent —
 turning it on in one shell doesn't touch another.

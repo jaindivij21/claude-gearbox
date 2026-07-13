@@ -1,7 +1,10 @@
 ---
-description: Set which model & effort Claude uses for each part of a task, just for this session.
-argument-hint: [on | off | shift <part> up|down | rev <part> up|down | turbo <part> | set <part> <model> [effort] | add | rm | preset <name>]
+description: Show your per-session Gearbox (which model & effort Claude uses for each part of a task); on/off.
+argument-hint: [on | off | (or just tell me what to change)]
 ---
 !`node "${CLAUDE_PLUGIN_ROOT}/bin/gearbox-cli.mjs" "${CLAUDE_SESSION_ID}" $ARGUMENTS`
 
-The block above is the current Gearbox setup for **this session** (it's already applied — the command ran, don't run it again). Show it to me as-is, then in one line confirm what changed or tell me the next step. If Gearbox is ON, from now on this session use each part's model when you spawn a sub-agent for that kind of work, and aim for its effort. Keep this reply short.
+Above is this session's Gearbox console (already applied — don't re-run it for a plain view). Show it to me as-is, in a code block, then stop — no explanation of commands.
+
+If I asked for a change in plain words (e.g. "put implementation on fable", "run research cheaper", "turbo code review", "add debugging", "turn it off"), apply it by running the CLI, then show the updated console:
+`node "${CLAUDE_PLUGIN_ROOT}/bin/gearbox-cli.mjs" "${CLAUDE_SESSION_ID}" <cmd>` — where `<cmd>` is `set <part> <model> [effort]` | `shift <part> up|down` | `rev <part> up|down` | `turbo <part> [on|off]` | `add <part>` | `rm <part>` | `on` | `off`. Models (strong→cheap): fable · opus[1m] · opus · sonnet · haiku. Effort: low · medium · high · xhigh · max. Keep it abstracted — I should never need to know these commands.

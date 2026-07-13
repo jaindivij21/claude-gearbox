@@ -9,17 +9,19 @@
 // It must NEVER break a prompt: any error is swallowed and it exits 0 with no output.
 
 import { readFileSync, unlinkSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 
 const HOME = homedir();
 const SESSIONS_DIR = join(HOME, ".claude", "gearbox", "sessions");
+const CLI = join(dirname(fileURLToPath(import.meta.url)), "gearbox-cli.mjs");
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
 
 function readStdin() { try { return readFileSync(0, "utf8"); } catch { return ""; } }
 function parse(raw) { try { return JSON.parse(raw); } catch { return {}; } }
 
-function gearMap(st) {
+function gearMap(st, sid) {
   const lines = st.aspects.map((a) => {
     const eff = a.ultracode ? "xhigh" : a.effort;
     const extra = a.ultracode ? ", turbo/ultracode: decompose → fan out → verify" : "";
@@ -28,7 +30,10 @@ function gearMap(st) {
   return [
     `[Gearbox on — setup "${st.name}"] For THIS session the user has set which model + effort to use for each kind of work:`,
     ...lines,
-    "When you delegate or spawn a sub-agent for one of these kinds of work, use that part's model (pass it on the spawn), and aim for its effort. The model is the firm choice; apply the effort where the spawn mechanism allows it. You still decide *whether/when* to split work up — this only sets *which* model/effort each part uses. The user may change these any time; follow the latest values above.",
+    "When you delegate or spawn a sub-agent for one of these kinds of work, use that part's model (pass it on the spawn), and aim for its effort. The model is the firm choice; apply the effort where the spawn mechanism allows it. You still decide *whether/when* to split work up — this only sets *which* model/effort each part uses.",
+    "Keep the mechanism abstracted: the user changes gears by telling you in plain words (e.g. \"put implementation on fable\", \"run research cheaper\", \"turbo code review\", \"add a debugging part\", \"gearbox off\") — never make them type gearbox commands. When they ask, translate it and run this, then show the returned console verbatim:",
+    `  node "${CLI}" "${sid}" <cmd>`,
+    "  <cmd>: set <part> <model> [effort] | shift <part> up|down | rev <part> up|down | turbo <part> [on|off] | add <part> | rm <part> | on | off. Models (strong→cheap): fable opus[1m] opus sonnet haiku. Effort (low→high): low medium high xhigh max.",
   ].join("\n");
 }
 
@@ -56,7 +61,7 @@ function main() {
   if (!st.aspects.length) process.exit(0);
 
   const event = payload.hook_event_name || "UserPromptSubmit";
-  const out = { hookSpecificOutput: { hookEventName: event, additionalContext: gearMap(st) } };
+  const out = { hookSpecificOutput: { hookEventName: event, additionalContext: gearMap(st, sid) } };
   process.stdout.write(JSON.stringify(out));
   process.exit(0);
 }

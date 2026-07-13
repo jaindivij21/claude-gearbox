@@ -39,11 +39,6 @@ const USECASES = [
   { id: "summarizing", desc: "Digest logs, threads, output", model: "haiku", effort: "low" },
   { id: "general", desc: "Catch-all for other sub-agents", model: "sonnet", effort: "medium" },
 ];
-const PRESETS = {
-  eco: { name: "eco", over: { planning: ["haiku", "low"], exploration: ["haiku", "low"], research: ["haiku", "low"], implementation: ["sonnet", "medium", false], "code review": ["haiku", "low"] } },
-  balanced: { name: "balanced", over: {} },
-  "full-send": { name: "full-send", over: { planning: ["opus[1m]", "high"], exploration: ["sonnet", "medium"], research: ["opus", "high"], implementation: ["fable", "xhigh", true], "code review": ["fable", "high"] } },
-};
 const CORE = ["planning", "exploration", "research", "implementation", "code review"];
 
 function useCase(id) { return USECASES.find((u) => u.id === id); }
@@ -58,7 +53,6 @@ function seedProfile() {
   try { return normalize(JSON.parse(readFileSync(DEFAULT_PROFILE, "utf8"))); } catch {}
   return { on: true, name: "balanced", aspects: CORE.map((id) => mkAspect(id)) };
 }
-function buildPreset(p) { return { on: true, name: p.name, aspects: CORE.map((id) => mkAspect(id, p.over[id])) }; }
 
 function sessionPath(sid) { return join(SESSIONS_DIR, `${sid}.json`); }
 function load(sid) {
@@ -121,10 +115,8 @@ function render(sid, st, note) {
     L.push(`  ${pad(a.id, 15)} ${shaft}  ${pad(a.model, 9)} rev ${rev} ${pad(eff, 6)}${turbo}`);
   }
   L.push("");
-  L.push("  SHIFT  /gearbox shift <part> up|down     move the gear (up = stronger, toward fable)");
-  L.push("  REV    /gearbox rev <part> up|down       throttle the effort (up = more, toward max)");
-  L.push("  TURBO  /gearbox turbo <part>             ultracode: xhigh + decompose → fan out → verify");
-  L.push("  more   set <part> <model> [effort] · add <part> · rm <part> · preset <eco|balanced|full-send> · off");
+  L.push("  To change a gear, just tell me in plain words — e.g. “put implementation on fable”,");
+  L.push("  “run research cheaper”, “turbo on code review”, “add a debugging part”.   Stop:  /gearbox off");
   if (note) L.push("", "» " + note);
   return L.join("\n");
 }
@@ -148,11 +140,6 @@ try {
       note = "Gearbox is OFF for this session — Claude runs normally."; break;
     case "reset":
       st = seedProfile(); st.on = true; save(sid, st); note = "Reset to the default setup."; break;
-    case "preset": {
-      const p = PRESETS[(rest[0] || "").toLowerCase()];
-      if (!p) { note = `Unknown preset. Try: ${Object.keys(PRESETS).join(", ")}.`; break; }
-      st = buildPreset(p); save(sid, st); note = `Loaded the “${p.name}” setup.`; break;
-    }
     case "set": {
       if (!st) st = seedProfile();
       const a = findAspect(st, rest[0]);
@@ -213,7 +200,7 @@ try {
       st.aspects = st.aspects.filter((x) => x !== a); save(sid, st); note = `Removed ${a.id}.`; break;
     }
     case "help":
-      note = "Drive it: shift <part> up|down (model) · rev <part> up|down (effort) · turbo <part>. Also: on · off · set <part> <model> [effort] · add <part> · rm <part> · preset <eco|balanced|full-send> · reset"; break;
+      note = "Just tell me what to change in plain words (e.g. “implementation on fable”, “research cheaper”, “turbo code review”, “add debugging”). On/off: /gearbox on · /gearbox off."; break;
     default:
       note = `Unknown command “${cmd}”. Try /gearbox help.`;
   }

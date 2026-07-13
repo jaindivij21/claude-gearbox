@@ -56,11 +56,11 @@ it off. `/gearbox` any time shows whether this session is ON or OFF.
 
 ## Use
 
-- `/gearbox on` — start it for **this** session · `/gearbox` — show the console · `/gearbox off` — stop.
-- `/gearbox shift <part> up|down` — move the gear (model); **up = stronger** (toward fable). e.g. `/gearbox shift implementation up`.
-- `/gearbox rev <part> up|down` — throttle the effort; **up = more** (toward max).
-- `/gearbox turbo <part>` — run that part extra hard (**turbo = ultracode**: xhigh + decompose → fan out → verify).
-- Also: `/gearbox set <part> <model> [effort]` · `add <part>` · `rm <part>` · `preset <eco|balanced|full-send>`.
+- `/gearbox` — show your gearbox (the console above).
+- `/gearbox on` — start it for **this** session · `/gearbox off` — back to normal.
+- **To change any gear, just tell Claude in plain words** — e.g. *"put implementation on fable"*,
+  *"run research cheaper"*, *"turbo on code review"*, *"add a debugging part"*. No commands to learn;
+  Claude shifts the gear and shows you the updated console.
 
 Then just work. Claude runs each part in the gear you set; change a gear and it applies on your next
 message. Another Claude shell is unaffected.
