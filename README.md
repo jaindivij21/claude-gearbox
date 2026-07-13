@@ -87,6 +87,19 @@ testing, refactor, docs, summarizing, general**, or any custom name.
 - **Effort** (low → high): `low` · `medium` · `high` · `xhigh` · `max`.
 - **Turbo** = ultracode for that part.
 
+## Gearbox vs `/model`
+
+Two different knobs — both useful:
+
+- **`/model`** sets the engine of the **main conversation** (the model that reads your messages and
+  replies). Gearbox never changes this — plugins can't set a live session's main model.
+- **Gearbox** sets the models/effort for the work Claude **delegates**: when it spawns a sub-agent to
+  plan, explore, research, implement, or review, that spawn runs in your gear for that part.
+
+So `/model` showing your usual model after shifting gears is expected. A good pairing: pick the main
+model once with `/model`, and let the gears keep delegated work cheap where it can be and strong
+where it must be.
+
 ## Per session — how it works
 
 Gearbox is **scoped to one Claude session** (one shell / one `claude` window). Each session keeps its
