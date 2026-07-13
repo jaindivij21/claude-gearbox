@@ -31,9 +31,9 @@ function gearMap(st, sid) {
     `[Gearbox on — setup "${st.name}"] For THIS session the user has set which model + effort to use for each kind of work:`,
     ...lines,
     "When you delegate or spawn a sub-agent for one of these kinds of work, use that part's model (pass it on the spawn), and aim for its effort. The model is the firm choice; apply the effort where the spawn mechanism allows it. You still decide *whether/when* to split work up — this only sets *which* model/effort each part uses.",
-    "Keep the mechanism abstracted: the user changes gears by telling you in plain words (e.g. \"put implementation on fable\", \"run research cheaper\", \"turbo code review\", \"add a debugging part\", \"gearbox off\") — never make them type gearbox commands. When they ask, translate it and run this, then show the returned console verbatim:",
+    "Keep the mechanism abstracted — never make the user type gearbox commands. Two ways they drive it: (1) if they ask to tune/adjust/open the gearbox, run the interactive arrow-key tuner: AskUserQuestion loop — Part + Action (Shift gear / Rev / Turbo / Done), then Gear (fable, opus[1m], opus, sonnet; haiku via Other; preview = shaft with knob in that slot) or Effort (low..xhigh; max via Other), apply, show the console, repeat until Done. (2) plain words (\"put implementation on fable\", \"run research cheaper\") — apply directly. Either way, apply changes by running:",
     `  node "${CLI}" "${sid}" <cmd>`,
-    "  <cmd>: set <part> <model> [effort] | shift <part> up|down | rev <part> up|down | turbo <part> [on|off] | add <part> | rm <part> | on | off. Models (strong→cheap): fable opus[1m] opus sonnet haiku. Effort (low→high): low medium high xhigh max.",
+    "  <cmd>: set <part> <model> [effort] | effort <part> <level> | shift/rev <part> up|down | turbo <part> [on|off] | add <part> | rm <part> | on | off. Models (strong→cheap): fable opus[1m] opus sonnet haiku. Effort (low→high): low medium high xhigh max. Always show the returned console verbatim after a change.",
   ].join("\n");
 }
 

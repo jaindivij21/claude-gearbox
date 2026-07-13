@@ -109,14 +109,13 @@ function render(sid, st, note) {
     let shaft = "";
     for (let i = 0; i < MODELS.length; i++) { shaft += i === mi ? "◉" : GEARNUM[i]; if (i < MODELS.length - 1) shaft += "──"; }
     const ei = effIdx(a);
-    const rev = "▐".repeat(ei + 1) + "░".repeat(EFFORTS.length - ei - 1);
+    const rev = "▰".repeat(ei + 1) + "▱".repeat(EFFORTS.length - ei - 1);
     const eff = a.ultracode ? "xhigh" : a.effort;
     const turbo = a.ultracode ? "  ⊙ TURBO" : "";
     L.push(`  ${pad(a.id, 15)} ${shaft}  ${pad(a.model, 9)} rev ${rev} ${pad(eff, 6)}${turbo}`);
   }
   L.push("");
-  L.push("  To change a gear, just tell me in plain words — e.g. “put implementation on fable”,");
-  L.push("  “run research cheaper”, “turbo on code review”, “add a debugging part”.   Stop:  /gearbox off");
+  L.push("  ↑↓ + Enter in the menus below to shift · plain words work too · /gearbox off to stop");
   if (note) L.push("", "» " + note);
   return L.join("\n");
 }

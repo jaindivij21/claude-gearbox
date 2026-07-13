@@ -56,11 +56,19 @@ it off. `/gearbox` any time shows whether this session is ON or OFF.
 
 ## Use
 
-- `/gearbox` — show your gearbox (the console above).
-- `/gearbox on` — start it for **this** session · `/gearbox off` — back to normal.
-- **To change any gear, just tell Claude in plain words** — e.g. *"put implementation on fable"*,
-  *"run research cheaper"*, *"turbo on code review"*, *"add a debugging part"*. No commands to learn;
-  Claude shifts the gear and shows you the updated console.
+`/gearbox` opens the console **plus an interactive tuner you drive with your keyboard** — Claude Code's
+native arrow-key menus:
+
+1. **↑↓** pick a part → **↑↓** pick an action (*Shift gear · Rev · Turbo · Done*) → **Enter**.
+2. Shifting a gear shows each option with a live preview of the shaft (`◉──②──③──④──⑤ fable`);
+   **Enter** slots the knob in.
+3. The console re-renders after every shift; keep tuning until you pick **Done**.
+
+No syntax to learn, nothing to type. (Plain words work too — *"put implementation on fable"* — and
+`/gearbox on` / `/gearbox off` toggle it.)
+
+> Why menus and not raw keystrokes? Claude Code doesn't give plugins a live TTY — its arrow-key
+> menus are the only keyboard-interactive surface a plugin gets, so the tuner is built on them.
 
 Then just work. Claude runs each part in the gear you set; change a gear and it applies on your next
 message. Another Claude shell is unaffected.
