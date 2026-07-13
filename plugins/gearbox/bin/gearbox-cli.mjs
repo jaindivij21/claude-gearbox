@@ -63,7 +63,9 @@ function normalize(p) {
   return {
     on: p.on !== false,
     name: p.name || "balanced",
-    main: p.main && MODEL_NAMES.includes(p.main.model) ? { model: p.main.model } : p.main || null,
+    main: p.main && MODEL_NAMES.includes(p.main.model)
+      ? { model: p.main.model, effort: EFFORTS.includes(p.main.effort) ? p.main.effort : "high", ultracode: !!p.main.ultracode }
+      : p.main || null,
     aspects: (p.aspects || []).map((a) => ({
       id: a.id || "part",
       model: MODEL_NAMES.includes(a.model) ? a.model : "sonnet",
@@ -110,7 +112,10 @@ function render(sid, st, note) {
     const mi = modelIdx(st.main.model);
     let shaft = "";
     for (let i = 0; i < MODELS.length; i++) { shaft += i === mi ? "◉" : GEARNUM[i]; if (i < MODELS.length - 1) shaft += "──"; }
-    L.push(`  ${pad("MAIN · engine", 15)} ${shaft}  ${pad(st.main.model, 9)} the conversation itself (via /model)`);
+    const ultra = !!st.main.ultracode;
+    const rev = ultra ? "▰▰▰▰▰" : "▰".repeat(EFFORTS.indexOf(st.main.effort || "high") + 1) + "▱".repeat(4 - EFFORTS.indexOf(st.main.effort || "high"));
+    const eff = ultra ? "ULTRA " : pad(st.main.effort || "high", 6);
+    L.push(`  ${pad("MAIN · engine", 15)} ${shaft}  ${pad(st.main.model, 9)} rev ${rev} ${eff}${ultra ? "  ⊙ ULTRACODE" : ""}`);
     L.push("  " + "─".repeat(72));
   }
   for (const a of st.aspects) {

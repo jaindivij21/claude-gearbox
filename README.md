@@ -94,10 +94,15 @@ testing, refactor, docs, summarizing, general**, or any custom name.
 
 ## The MAIN gear — shifting the conversation engine itself
 
-The shifter's top row is **MAIN · engine**: the model of the conversation itself (what `/model`
-controls). Shift it with **← →** and the shifter **types `/model <gear>` into your Claude session
-for you** (the ShiftCC trick — keystroke injection, no tmux needed) and hands focus straight back.
-`/model` in Claude will then show the gear you picked.
+The shifter's top row is **MAIN · engine**: the conversation itself. It has all three controls:
+
+- **← →** shifts the engine's model — the shifter **types `/model <gear>` into your Claude session
+  for you** (the ShiftCC trick — keystroke injection, no tmux needed) and hands focus straight back.
+- **- +** revs the engine's effort — injected as `/effort <level>`.
+- **t** toggles **ULTRACODE** on the whole session — injected as `/effort ultracode` (Claude then
+  plans a multi-agent workflow for every substantive task); `t` again drops back to your effort level.
+
+`/model` and `/effort` in Claude will show whatever you shifted to.
 
 - Needs a one-time grant: **System Settings → Privacy & Security → Accessibility → allow Terminal**
   (the shifter tells you if it's missing).

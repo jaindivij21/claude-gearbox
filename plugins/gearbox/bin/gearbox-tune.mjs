@@ -49,14 +49,20 @@ function mkAspect(id) {
   const u = CATALOG.find((c) => c.id === id) || { desc: "", model: "sonnet", effort: "medium" };
   return { id, model: u.model, effort: u.effort, ultracode: !!u.ultra, description: u.desc ? u.desc + "." : "" };
 }
-function settingsModel() {
-  try { return JSON.parse(readFileSync(join(HOME, ".claude", "settings.json"), "utf8")).model || null; } catch { return null; }
+function readSettings() {
+  try { const j = JSON.parse(readFileSync(join(HOME, ".claude", "settings.json"), "utf8")); return { model: j.model || null, effortLevel: j.effortLevel || null }; } catch { return { model: null, effortLevel: null }; }
 }
-function restoreSettingsModel(prev) {
+function settingsModel() { return readSettings().model; }
+// /model and /effort persist picks as defaults; put the user's saved defaults back so
+// shifter changes stay session-only.
+function restoreSettings(prev) {
   try {
     const p = join(HOME, ".claude", "settings.json");
     const j = JSON.parse(readFileSync(p, "utf8"));
-    if (prev && j.model !== prev) { j.model = prev; writeFileSync(p, JSON.stringify(j, null, 2) + "\n"); }
+    let dirty = false;
+    if (prev.model && j.model !== prev.model) { j.model = prev.model; dirty = true; }
+    if (prev.effortLevel && j.effortLevel !== prev.effortLevel) { j.effortLevel = prev.effortLevel; dirty = true; }
+    if (dirty) writeFileSync(p, JSON.stringify(j, null, 2) + "\n");
   } catch {}
 }
 function load() {
@@ -80,9 +86,13 @@ function load() {
     }
   }
   if (!st.main || !MODELS.includes(st.main.model)) {
-    const d = settingsModel();
-    st.main = { model: MODELS.includes(d) ? d : "opus[1m]" };
+    const s = readSettings();
+    st.main = { model: MODELS.includes(s.model) ? s.model : "opus[1m]",
+                effort: EFFORTS.includes(s.effortLevel) ? s.effortLevel : "high",
+                ultracode: false };
   }
+  if (!EFFORTS.includes(st.main.effort)) st.main.effort = "high";
+  st.main.ultracode = !!st.main.ultracode;
   return st;
 }
 function save() {
@@ -104,33 +114,42 @@ const pad = (s, n) => { s = String(s); return s.length >= n ? s.slice(0, n) : s 
 let st = load();
 let sel = 0, savedAt = 0, hint = "", injectTimer = null;
 
-// MAIN gear: types "/model <alias>" + Enter into the app running the Claude session
-// (the ShiftCC trick, without tmux). Debounced so you can slide freely through gears.
-function scheduleInject() {
+// MAIN gear: types "/model <alias>" and/or "/effort <level|ultracode>" + Enter into the
+// app running the Claude session (the ShiftCC trick, without tmux). Debounced so you can
+// slide freely; whatever changed since the last send goes out in one burst.
+let pendModel = false, pendEffort = false;
+function scheduleInject(kind) {
+  if (kind === "model") pendModel = true;
+  if (kind === "effort") pendEffort = true;
   clearTimeout(injectTimer);
-  injectTimer = setTimeout(injectModel, 700);
+  injectTimer = setTimeout(injectMain, 700);
 }
-function injectModel() {
-  const model = st.main.model;
+function injectMain() {
+  const cmds = [];
+  if (pendModel) cmds.push(`/model ${st.main.model}`);
+  if (pendEffort) cmds.push(`/effort ${st.main.ultracode ? "ultracode" : st.main.effort}`);
+  pendModel = pendEffort = false;
+  if (!cmds.length) return;
   if (process.platform !== "darwin" || !HOST || HOST === "Terminal") {
-    hint = `type  /model ${model}  in Claude to apply the engine`; draw(); return;
+    hint = `type  ${cmds.join("  then  ")}  in Claude to apply the engine`; draw(); return;
   }
-  const prevDefault = settingsModel(); // /model may persist as default; we put it back
+  const prev = readSettings(); // /model + /effort persist defaults; we put them back
+  const typing = cmds.map((c) => `  keystroke "${c}"
+  delay 0.15
+  key code 36
+  delay 0.35`).join("\n");
   // target by PROCESS name (Warp's process is e.g. "stable"), not app bundle name
   const scr = `tell application "System Events"
   set frontmost of process "${HOST}" to true
   delay 0.3
-  keystroke "/model ${model}"
-  delay 0.15
-  key code 36
-  delay 0.3
+${typing}
   set frontmost of process "Terminal" to true
 end tell`;
   execFile("osascript", ["-e", scr], (err) => {
     if (err) hint = "⚠ allow Accessibility for Terminal: System Settings → Privacy & Security → Accessibility";
     else {
-      hint = `engine → ${model}   (sent /model to ${HOST})`;
-      setTimeout(() => restoreSettingsModel(prevDefault), 2500);
+      hint = `engine → ${cmds.join(" · ")}   (sent to ${HOST})`;
+      setTimeout(() => restoreSettings(prev), 2500);
     }
     draw();
   });
@@ -155,12 +174,22 @@ function draw() {
   out.push("  " + A.faint + "─".repeat(72) + A.reset);
   out.push("  " + A.faint + "gears:  ①fable  ②opus[1m]  ③opus  ④sonnet  ⑤haiku     (① strongest·costliest)" + A.reset);
   out.push("");
-  // row 0 — MAIN engine (the conversation itself; applied by typing /model into the session)
+  // row 0 — MAIN engine (the conversation itself; applied via /model + /effort injection)
   {
     const cur = sel === 0;
     const name = (cur ? A.inv + A.bold : A.grey) + " " + pad("MAIN · engine", 15) + A.reset;
     const marker = cur ? A.amber + "▶" + A.reset : " ";
-    out.push(` ${marker}${name} ${shaftFor(st.main.model, cur)}  ${(cur ? A.white : A.grey) + pad(st.main.model, 9) + A.reset} ${A.faint}← → shifts the conversation via /model${A.reset}`);
+    let rev = "", eff;
+    if (st.main.ultracode) {
+      for (let k = 0; k < EFFORTS.length; k++) rev += A.orange + "▰" + A.reset;
+      eff = A.orange + "ULTRA " + A.reset;
+    } else {
+      const ei = EFFORTS.indexOf(st.main.effort);
+      for (let k = 0; k < EFFORTS.length; k++) rev += (k <= ei ? revColor(ei) + "▰" : A.faint + "▱") + A.reset;
+      eff = (cur ? A.white : A.grey) + pad(st.main.effort, 6) + A.reset;
+    }
+    const turbo = st.main.ultracode ? "  " + A.orange + "⊙ ULTRACODE" + A.reset : "";
+    out.push(` ${marker}${name} ${shaftFor(st.main.model, cur)}  ${(cur ? A.white : A.grey) + pad(st.main.model, 9) + A.reset} ${rev} ${eff}${turbo}`);
   }
   out.push("  " + A.faint + "─".repeat(72) + A.reset);
   st.aspects.forEach((a, i) => {
@@ -204,18 +233,27 @@ process.stdin.on("data", (key) => {
     case "\x1b[A": case "k": sel = (sel - 1 + ROWS) % ROWS; hint = ""; break;
     case "\x1b[B": case "j": sel = (sel + 1) % ROWS; hint = ""; break;
     case "\x1b[D": case "h": { // ← stronger
-      if (onMain) { const i = MODELS.indexOf(st.main.model); if (i > 0) { st.main.model = MODELS[i - 1]; save(); scheduleInject(); } }
+      if (onMain) { const i = MODELS.indexOf(st.main.model); if (i > 0) { st.main.model = MODELS[i - 1]; save(); scheduleInject("model"); } }
       else { const i = MODELS.indexOf(a.model); if (i > 0) { a.model = MODELS[i - 1]; st.on = true; save(); } }
       break;
     }
     case "\x1b[C": case "l": { // → cheaper
-      if (onMain) { const i = MODELS.indexOf(st.main.model); if (i < MODELS.length - 1) { st.main.model = MODELS[i + 1]; save(); scheduleInject(); } }
+      if (onMain) { const i = MODELS.indexOf(st.main.model); if (i < MODELS.length - 1) { st.main.model = MODELS[i + 1]; save(); scheduleInject("model"); } }
       else { const i = MODELS.indexOf(a.model); if (i < MODELS.length - 1) { a.model = MODELS[i + 1]; st.on = true; save(); } }
       break;
     }
-    case "+": case "=": if (a && !a.ultracode) { const i = EFFORTS.indexOf(a.effort); if (i < EFFORTS.length - 1) { a.effort = EFFORTS[i + 1]; st.on = true; save(); } } break;
-    case "-": case "_": if (a && !a.ultracode) { const i = EFFORTS.indexOf(a.effort); if (i > 0) { a.effort = EFFORTS[i - 1]; st.on = true; save(); } } break;
-    case "t": if (a) { a.ultracode = !a.ultracode; st.on = true; save(); } break;
+    case "+": case "=":
+      if (onMain && !st.main.ultracode) { const i = EFFORTS.indexOf(st.main.effort); if (i < EFFORTS.length - 1) { st.main.effort = EFFORTS[i + 1]; save(); scheduleInject("effort"); } }
+      else if (a && !a.ultracode) { const i = EFFORTS.indexOf(a.effort); if (i < EFFORTS.length - 1) { a.effort = EFFORTS[i + 1]; st.on = true; save(); } }
+      break;
+    case "-": case "_":
+      if (onMain && !st.main.ultracode) { const i = EFFORTS.indexOf(st.main.effort); if (i > 0) { st.main.effort = EFFORTS[i - 1]; save(); scheduleInject("effort"); } }
+      else if (a && !a.ultracode) { const i = EFFORTS.indexOf(a.effort); if (i > 0) { a.effort = EFFORTS[i - 1]; st.on = true; save(); } }
+      break;
+    case "t":
+      if (onMain) { st.main.ultracode = !st.main.ultracode; save(); scheduleInject("effort"); }
+      else if (a) { a.ultracode = !a.ultracode; st.on = true; save(); }
+      break;
     case "o": st.on = !st.on; save(); break;
     case "a": { const next = CATALOG.find((c) => !st.aspects.some((x) => x.id === c.id)); if (next) { st.aspects.push(mkAspect(next.id)); sel = st.aspects.length; st.on = true; save(); } break; }
     case "x": if (a && st.aspects.length > 1) { st.aspects.splice(sel - 1, 1); sel = Math.max(1, sel - 1); save(); } break;

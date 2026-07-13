@@ -1,6 +1,6 @@
 {
   "name": "gearbox",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Pick which model and effort Claude uses for each part of a task (planning, research, implementation, and more) — per session, from inside Claude with /gearbox. Off by default; invisible when off.",
   "author": {
     "name": "Divij Jain"
