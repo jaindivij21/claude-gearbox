@@ -1,181 +1,64 @@
 #!/usr/bin/env node
-// Gearbox sync — runs from a Claude Code hook (SessionStart + UserPromptSubmit).
+// Gearbox sync — runs from the SessionStart + UserPromptSubmit hooks.
+// Reads THIS session's gears (keyed by session_id from the hook's stdin) and, if Gearbox
+// is on for this session, injects a "gear map" telling Claude which model + effort to use
+// for each kind of work. Per-session: other shells are unaffected. If this session hasn't
+// turned Gearbox on, it emits nothing — Claude behaves exactly as normal.
 //
-// What it does, every time it runs:
-//   * Decides whether Gearbox is ON for this session (env GEARBOX, or a marker file).
-//   * ON  -> generates one sub-agent (.md) per aspect in profile.json (only when changed),
-//           removes stale gearbox agents, and injects a "gear map" so Claude routes each
-//           kind of work to the right gear.
-//   * OFF -> removes any gearbox-managed agent files so Claude behaves exactly as normal,
-//           and injects nothing.
-//
+// With --cleanup (SessionEnd hook), it deletes this session's state file.
 // It must NEVER break a prompt: any error is swallowed and it exits 0 with no output.
 
-import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync, unlinkSync, copyFileSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
 import { homedir } from "node:os";
 
-const MARK = "gearbox:managed"; // ownership tag stamped into every generated agent file
 const HOME = homedir();
-const GEARBOX_HOME = join(HOME, ".claude", "gearbox"); // user data (survives plugin updates)
-const AGENTS_DIR = join(HOME, ".claude", "agents");
-const PROFILE = join(GEARBOX_HOME, "profile.json");
-const ON_MARKER = join(GEARBOX_HOME, "ON");
-const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_PROFILE = join(SCRIPT_DIR, "..", "templates", "profile.default.json");
+const SESSIONS_DIR = join(HOME, ".claude", "gearbox", "sessions");
+const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
 
-const VALID_EFFORT = new Set(["low", "medium", "high", "xhigh", "max"]);
+function readStdin() { try { return readFileSync(0, "utf8"); } catch { return ""; } }
+function parse(raw) { try { return JSON.parse(raw); } catch { return {}; } }
 
-// ---- read the hook payload (to learn the event name) without ever blocking ----
-function readStdin() {
-  try {
-    return readFileSync(0, "utf8");
-  } catch {
-    return "";
-  }
-}
-function hookEventName(raw) {
-  try {
-    const j = JSON.parse(raw);
-    return j.hook_event_name || j.hookEventName || "UserPromptSubmit";
-  } catch {
-    return "UserPromptSubmit";
-  }
-}
-
-// ---- is Gearbox on for this session? ----
-function isActive() {
-  const env = (process.env.GEARBOX || "").trim().toLowerCase();
-  if (env && env !== "0" && env !== "false" && env !== "off") return true;
-  return existsSync(ON_MARKER);
-}
-
-// ---- list gearbox-managed agent files currently on disk ----
-function managedAgentFiles() {
-  if (!existsSync(AGENTS_DIR)) return [];
-  const out = [];
-  for (const f of readdirSync(AGENTS_DIR)) {
-    if (!f.endsWith(".md")) continue;
-    const p = join(AGENTS_DIR, f);
-    try {
-      if (readFileSync(p, "utf8").includes(MARK)) out.push(p);
-    } catch {}
-  }
-  return out;
-}
-function removeAll(paths) {
-  for (const p of paths) {
-    try { unlinkSync(p); } catch {}
-  }
-}
-
-// ---- build the .md body for one aspect ----
-function agentFile(aspect) {
-  const model = String(aspect.model || "inherit");
-  const turbo = !!aspect.ultracode;
-  let effort = String(aspect.effort || "").toLowerCase();
-  if (turbo) effort = "xhigh"; // turbo/ultracode always runs hard
-  if (!VALID_EFFORT.has(effort)) effort = "";
-
-  const fm = [`name: ${aspect.agent}`, `description: ${oneLine(aspect.description)}`];
-  if (model && model !== "inherit") fm.push(`model: ${model}`);
-  if (effort) fm.push(`effort: ${effort}`);
-  if (Array.isArray(aspect.tools) && aspect.tools.length) fm.push(`tools: ${aspect.tools.join(", ")}`);
-
-  const body = [];
-  body.push(`<!-- ${MARK}: generated from ~/.claude/gearbox/profile.json — do not edit by hand -->`);
-  body.push("");
-  body.push(aspect.instructions ? String(aspect.instructions) : `You are the ${aspect.id} gear.`);
-  if (turbo) {
-    body.push("");
-    body.push(
-      "Run this in turbo (ultracode-style): break the work into parts, fan out parallel sub-tasks where it helps, and adversarially double-check the result before returning."
-    );
-  }
-  return `---\n${fm.join("\n")}\n---\n${body.join("\n")}\n`;
-}
-function oneLine(s) {
-  return String(s || "").replace(/\s+/g, " ").trim();
-}
-
-// ---- write file only if content changed (keeps hot-reload churn to zero) ----
-function writeIfChanged(path, content) {
-  try {
-    if (existsSync(path) && readFileSync(path, "utf8") === content) return false;
-    writeFileSync(path, content);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// ---- the gear map injected into Claude's context ----
-function gearMap(aspects) {
-  const lines = aspects.map((a) => {
-    const bits = [`model: ${a.model || "inherit"}`];
+function gearMap(st) {
+  const lines = st.aspects.map((a) => {
     const eff = a.ultracode ? "xhigh" : a.effort;
-    if (eff) bits.push(`effort: ${eff}`);
-    if (a.ultracode) bits.push("turbo");
-    return `- ${cap(a.id)} → subagent "${a.agent}" (${bits.join(", ")})`;
+    const extra = a.ultracode ? ", turbo/ultracode: decompose → fan out → verify" : "";
+    return `- ${a.id}: model ${a.model}, effort ${eff}${extra}${a.description ? ` — ${a.description}` : ""}`;
   });
   return [
-    "[Gearbox active] The user has set per-aspect model/effort gears. Delegate work to these sub-agents so each part runs at the chosen model + effort:",
+    `[Gearbox on — setup "${st.name}"] For THIS session the user has set which model + effort to use for each kind of work:`,
     ...lines,
-    'Prefer these gearbox sub-agents over the default ones for these kinds of work. The user may change gears at any time — always follow the latest values above. You still decide *when* to split work into sub-agents; gears only set *which* model/effort each uses.',
+    "When you delegate or spawn a sub-agent for one of these kinds of work, use that part's model (pass it on the spawn), and aim for its effort. The model is the firm choice; apply the effort where the spawn mechanism allows it. You still decide *whether/when* to split work up — this only sets *which* model/effort each part uses. The user may change these any time; follow the latest values above.",
   ].join("\n");
 }
-function cap(s) {
-  s = String(s || "");
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
 
-// ---- emit hook output (silent context injection) ----
-function emit(event, context) {
-  if (!context) { process.exit(0); }
-  const payload = { hookSpecificOutput: { hookEventName: event, additionalContext: context } };
-  process.stdout.write(JSON.stringify(payload));
-  process.exit(0);
-}
-
-// ---- main ----
 function main() {
   const raw = readStdin();
-  const event = hookEventName(raw);
+  const payload = parse(raw);
+  const sid = payload.session_id || process.env.CLAUDE_CODE_SESSION_ID || process.env.CLAUDE_SESSION_ID;
+  if (!sid) process.exit(0);
+  const path = join(SESSIONS_DIR, `${sid}.json`);
 
-  if (!isActive()) {
-    // OFF: leave no trace — remove any gearbox-managed agents and say nothing.
-    removeAll(managedAgentFiles());
+  if (process.argv.includes("--cleanup")) {
+    try { unlinkSync(path); } catch {}
     process.exit(0);
   }
 
-  // ON: load the profile.
-  let profile;
-  try {
-    profile = JSON.parse(readFileSync(PROFILE, "utf8"));
-  } catch {
-    process.exit(0); // no/broken profile -> do nothing
-  }
-  const aspects = Array.isArray(profile.aspects) ? profile.aspects.filter((a) => a && a.agent && a.id) : [];
-  if (!aspects.length) process.exit(0);
+  let st;
+  try { st = JSON.parse(readFileSync(path, "utf8")); } catch { process.exit(0); } // not on for this session
+  if (!st || st.on === false || !Array.isArray(st.aspects) || !st.aspects.length) process.exit(0);
 
-  try { mkdirSync(AGENTS_DIR, { recursive: true }); } catch {}
+  // normalize just enough for the map
+  st.name = st.name || "custom";
+  st.aspects = st.aspects
+    .filter((a) => a && a.id && a.model)
+    .map((a) => ({ id: a.id, model: a.model, effort: EFFORTS.includes(a.effort) ? a.effort : "medium", ultracode: !!a.ultracode, description: a.description || "" }));
+  if (!st.aspects.length) process.exit(0);
 
-  // Write current aspects.
-  const wanted = new Set();
-  for (const a of aspects) {
-    const path = join(AGENTS_DIR, `${a.agent}.md`);
-    wanted.add(path);
-    writeIfChanged(path, agentFile(a));
-  }
-  // Remove gearbox-managed agents that are no longer in the profile.
-  removeAll(managedAgentFiles().filter((p) => !wanted.has(p)));
-
-  emit(event, gearMap(aspects));
+  const event = payload.hook_event_name || "UserPromptSubmit";
+  const out = { hookSpecificOutput: { hookEventName: event, additionalContext: gearMap(st) } };
+  process.stdout.write(JSON.stringify(out));
+  process.exit(0);
 }
 
-try {
-  main();
-} catch {
-  process.exit(0); // never break a prompt
-}
+try { main(); } catch { process.exit(0); }

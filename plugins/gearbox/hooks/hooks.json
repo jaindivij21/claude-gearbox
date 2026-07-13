@@ -14,5 +14,13 @@
         { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/bin/gearbox-hook.sh\"" }
       ]
     }
+  ],
+  "SessionEnd": [
+    {
+      "matcher": "",
+      "hooks": [
+        { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/bin/gearbox-hook.sh\" --cleanup" }
+      ]
+    }
   ]
 }
