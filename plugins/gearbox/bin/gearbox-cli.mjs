@@ -51,6 +51,8 @@ function mkAspect(id, over) {
   return { id, model, effort, ultracode: !!ultra, description: u.desc ? u.desc + "." : "" };
 }
 function seedProfile() {
+  // personal default (saved via the `default` cmd / the shifter's `d` key) wins over the shipped template
+  try { return normalize(JSON.parse(readFileSync(join(GEARBOX_HOME, "default.json"), "utf8"))); } catch {}
   try { return normalize(JSON.parse(readFileSync(DEFAULT_PROFILE, "utf8"))); } catch {}
   return { on: true, name: "balanced", aspects: CORE.map((id) => mkAspect(id)) };
 }
@@ -179,6 +181,13 @@ end tell`;
       note = "Gearbox is OFF for this session — Claude runs normally."; break;
     case "reset":
       st = seedProfile(); st.on = true; save(sid, st); note = "Reset to the default setup."; break;
+    case "default": case "save-default": {
+      if (!st) { note = "Nothing to save — turn Gearbox on and set your gears first."; break; }
+      const d = { ...st, on: true, name: "my-default" };
+      mkdirSync(GEARBOX_HOME, { recursive: true });
+      writeFileSync(join(GEARBOX_HOME, "default.json"), JSON.stringify(d, null, 2) + "\n");
+      note = "Saved this setup as your default — every new session starts with it."; break;
+    }
     case "set": {
       if (!st) st = seedProfile();
       const a = findAspect(st, rest[0]);

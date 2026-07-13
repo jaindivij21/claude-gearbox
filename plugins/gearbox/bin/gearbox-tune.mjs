@@ -23,7 +23,8 @@ const hi = process.argv.indexOf("--host");
 const HOST = hi > -1 ? process.argv.slice(hi + 1).join(" ").trim() : "";
 
 const HOME = homedir();
-const SESSIONS_DIR = join(HOME, ".claude", "gearbox", "sessions");
+const GEARBOX_HOME = join(HOME, ".claude", "gearbox");
+const SESSIONS_DIR = join(GEARBOX_HOME, "sessions");
 const FILE = join(SESSIONS_DIR, `${SID}.json`);
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PROFILE = join(SCRIPT_DIR, "..", "templates", "profile.default.json");
@@ -78,12 +79,15 @@ function load() {
     }
   } catch {}
   if (!st) {
-    try {
-      const t = JSON.parse(readFileSync(DEFAULT_PROFILE, "utf8"));
-      st = { on: true, name: t.name || "balanced", main: null, aspects: t.aspects.map((a) => ({ ...a })) };
-    } catch {
-      st = { on: true, name: "balanced", main: null, aspects: ["planning", "exploration", "research", "implementation", "code review"].map(mkAspect) };
+    // personal default (the shifter's `d` key) wins over the shipped template
+    for (const p of [join(GEARBOX_HOME, "default.json"), DEFAULT_PROFILE]) {
+      try {
+        const t = JSON.parse(readFileSync(p, "utf8"));
+        st = { on: true, name: t.name || "balanced", main: t.main || null, aspects: t.aspects.map((a) => ({ ...a })) };
+        break;
+      } catch {}
     }
+    if (!st) st = { on: true, name: "balanced", main: null, aspects: ["planning", "exploration", "research", "implementation", "code review"].map(mkAspect) };
   }
   if (!st.main || !MODELS.includes(st.main.model)) {
     const s = readSettings();
@@ -206,7 +210,7 @@ function draw() {
   out.push("");
   out.push("  " + A.faint + "─".repeat(72) + A.reset);
   out.push("  " + A.faint + "↑↓ row   ←→ gear (← stronger)   -/+ rev   t turbo   a add   x remove" + A.reset);
-  out.push("  " + A.faint + "o on/off   q close      sub-gears apply next message · MAIN applies instantly" + A.reset);
+  out.push("  " + A.faint + "d make default   o on/off   q close     sub-gears apply next message · MAIN instantly" + A.reset);
   if (hint) out.push("  " + A.yellow + hint + A.reset);
   process.stdout.write("\x1b[2J\x1b[H" + out.join("\n") + "\n");
 }
@@ -255,6 +259,11 @@ process.stdin.on("data", (key) => {
       else if (a) { a.ultracode = !a.ultracode; st.on = true; save(); }
       break;
     case "o": st.on = !st.on; save(); break;
+    case "d": {
+      const def = { ...st, on: true, name: "my-default" };
+      writeFileSync(join(GEARBOX_HOME, "default.json"), JSON.stringify(def, null, 2) + "\n");
+      hint = "✓ saved as your DEFAULT — every new session starts with this setup"; break;
+    }
     case "a": { const next = CATALOG.find((c) => !st.aspects.some((x) => x.id === c.id)); if (next) { st.aspects.push(mkAspect(next.id)); sel = st.aspects.length; st.on = true; save(); } break; }
     case "x": if (a && st.aspects.length > 1) { st.aspects.splice(sel - 1, 1); sel = Math.max(1, sel - 1); save(); } break;
     default: return;
