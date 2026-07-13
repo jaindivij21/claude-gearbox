@@ -33,6 +33,27 @@ can't host a live drag UI), but the console reads like a real gearbox.
 
 That's it — no shell aliases, no separate app. Everything is `/gearbox` inside Claude.
 
+## Update
+
+When a new version ships, refresh the marketplace and reinstall (from inside Claude):
+
+```
+/plugin marketplace update claude-gearbox
+/plugin install gearbox@claude-gearbox
+/reload-plugins
+```
+
+## Turn it on & off
+
+- **On** (this session only): `/gearbox on`
+- **Off** (back to normal): `/gearbox off`
+- **Remove entirely**: disable the plugin with `/plugin`.
+
+**When it's off, Claude works exactly as normal.** In any session where you haven't run `/gearbox on`
+— and after `/gearbox off` — the hook does nothing: no gear map, no files, no change to how Claude
+picks models. Gearbox only affects a session *after* you switch it on there, and only until you switch
+it off. `/gearbox` any time shows whether this session is ON or OFF.
+
 ## Use
 
 - `/gearbox on` — start it for **this** session · `/gearbox` — show the console · `/gearbox off` — stop.
@@ -54,12 +75,21 @@ testing, refactor, docs, summarizing, general**, or any custom name.
 - **Effort** (low → high): `low` · `medium` · `high` · `xhigh` · `max`.
 - **Turbo** = ultracode for that part.
 
-## How it works
+## Per session — how it works
 
-Your gears for a session live in `~/.claude/gearbox/sessions/<session-id>.json`. A plugin hook reads
-*that session's* gears on each message and tells Claude which model + effort to use for each kind of
-work. If a session never turns Gearbox on, the hook does nothing — no files, no behaviour change.
-Disabling the plugin removes the hook entirely.
+Gearbox is **scoped to one Claude session** (one shell / one `claude` window). Each session keeps its
+own gears in `~/.claude/gearbox/sessions/<session-id>.json`:
+
+- Turning it on, shifting a gear, or turning it off in **one** session changes only that session.
+  Another Claude window running at the same time is completely unaffected — they can even run
+  different setups side by side.
+- On each message, a plugin hook reads **this session's** gears (keyed by the session id) and tells
+  Claude which model + effort to use for each kind of work. Change a gear and it applies on your
+  **next** message — no restart.
+- A session that never ran `/gearbox on` has no state file, so the hook emits nothing. When the last
+  session using Gearbox ends, its file is cleaned up — nothing lingers globally.
+
+**One thing to know:** the **model** you pick for a part is the firm choice — Claude uses it when it
 
 **One thing to know:** the **model** you pick for a part is the firm choice — Claude uses it when it
 spawns a sub-agent for that kind of work. **Effort** is applied where the spawn allows it; the model is

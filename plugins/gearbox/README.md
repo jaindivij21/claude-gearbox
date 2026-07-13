@@ -4,6 +4,10 @@ Pick which **model** and **effort** Claude uses for each *part* of a task — pl
 implementation, and more — from inside Claude, **per session**. Off by default: until you turn it
 on in a session, Claude behaves exactly as normal.
 
+**On / off:** `/gearbox on` to start it for this session, `/gearbox off` for normal Claude. It only
+affects a session after you turn it on there, and only until you turn it off — other Claude windows
+are untouched. **Update:** `/plugin marketplace update claude-gearbox` → `/plugin install gearbox@claude-gearbox` → `/reload-plugins`.
+
 ## Use it (all from inside Claude — no shell, no separate tool)
 `/gearbox` shows a driveshaft console; the knob (◉) sits in each part's current gear:
 
