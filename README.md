@@ -60,9 +60,14 @@ it off. `/gearbox` any time shows whether this session is ON or OFF.
 Claude session and bound to it. It's a real TUI, so **keystrokes actually work**:
 
 ```
-↑ ↓   pick a part            ← →   slide the gear (left = stronger, toward fable)
+↑ ↓   pick a row (MAIN engine, or a part)
+← →   slide the gear (left = stronger, toward fable)
 - +   rev the effort         t     turbo (ultracode)        o  on/off    q  close
 ```
+
+The top row is **MAIN · engine** — shifting it switches the conversation's own model by typing
+`/model` into your session for you (see below). The rows under it are the parts (planning,
+research, implementation…), which govern delegated work.
 
 Every keypress **auto-saves live** — no submit step. Your Claude session picks the change up on its
 next message. Close it with `q` whenever; reopen any time with `/gearbox tune`.
@@ -87,18 +92,19 @@ testing, refactor, docs, summarizing, general**, or any custom name.
 - **Effort** (low → high): `low` · `medium` · `high` · `xhigh` · `max`.
 - **Turbo** = ultracode for that part.
 
-## Gearbox vs `/model`
+## The MAIN gear — shifting the conversation engine itself
 
-Two different knobs — both useful:
+The shifter's top row is **MAIN · engine**: the model of the conversation itself (what `/model`
+controls). Shift it with **← →** and the shifter **types `/model <gear>` into your Claude session
+for you** (the ShiftCC trick — keystroke injection, no tmux needed) and hands focus straight back.
+`/model` in Claude will then show the gear you picked.
 
-- **`/model`** sets the engine of the **main conversation** (the model that reads your messages and
-  replies). Gearbox never changes this — plugins can't set a live session's main model.
-- **Gearbox** sets the models/effort for the work Claude **delegates**: when it spawns a sub-agent to
-  plan, explore, research, implement, or review, that spawn runs in your gear for that part.
-
-So `/model` showing your usual model after shifting gears is expected. A good pairing: pick the main
-model once with `/model`, and let the gears keep delegated work cheap where it can be and strong
-where it must be.
+- Needs a one-time grant: **System Settings → Privacy & Security → Accessibility → allow Terminal**
+  (the shifter tells you if it's missing).
+- Your saved default model is untouched — the shifter restores `settings.json` after the switch, so
+  the change is session-only.
+- The sub-gears (planning, research, implementation…) govern **delegated** work — each sub-agent
+  spawn runs in its part's gear.
 
 ## Per session — how it works
 

@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from "
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir, platform } from "node:os";
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 
 const HOME = homedir();
 const GEARBOX_HOME = join(HOME, ".claude", "gearbox");
@@ -63,6 +63,7 @@ function normalize(p) {
   return {
     on: p.on !== false,
     name: p.name || "balanced",
+    main: p.main && MODEL_NAMES.includes(p.main.model) ? { model: p.main.model } : p.main || null,
     aspects: (p.aspects || []).map((a) => ({
       id: a.id || "part",
       model: MODEL_NAMES.includes(a.model) ? a.model : "sonnet",
@@ -105,6 +106,13 @@ function render(sid, st, note) {
   L.push(RULE);
   L.push("  gears →  ①fable  ②opus[1m]  ③opus  ④sonnet  ⑤haiku      (① strongest · costliest)");
   L.push("");
+  if (st.main && st.main.model) {
+    const mi = modelIdx(st.main.model);
+    let shaft = "";
+    for (let i = 0; i < MODELS.length; i++) { shaft += i === mi ? "◉" : GEARNUM[i]; if (i < MODELS.length - 1) shaft += "──"; }
+    L.push(`  ${pad("MAIN · engine", 15)} ${shaft}  ${pad(st.main.model, 9)} the conversation itself (via /model)`);
+    L.push("  " + "─".repeat(72));
+  }
   for (const a of st.aspects) {
     const mi = modelIdx(a.model);
     let shaft = "";
@@ -140,7 +148,13 @@ try {
       if (!st) { st = seedProfile(); st.on = true; save(sid, st); }
       const tunePath = join(SCRIPT_DIR, "gearbox-tune.mjs");
       if (platform() === "darwin") {
-        const shellCmd = `node ${q(tunePath)} ${q(sid)}`;
+        // capture the app hosting this Claude session (frontmost right now) — the MAIN
+        // gear in the shifter types /model into it, ShiftCC-style
+        let host = "";
+        try {
+          host = execFileSync("osascript", ["-e", 'tell application "System Events" to get name of first application process whose frontmost is true'], { encoding: "utf8", timeout: 3000 }).trim();
+        } catch {}
+        const shellCmd = `node ${q(tunePath)} ${q(sid)}${host ? " --host " + q(host) : ""}`;
         const osa = `tell application "Terminal"
   activate
   do script "${shellCmd.replace(/"/g, '\\"')}"

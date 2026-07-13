@@ -14,9 +14,13 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
+import { execFile } from "node:child_process";
 
 const SID = process.argv[2];
-if (!SID) { console.error("usage: gearbox-tune.mjs <session-id>"); process.exit(1); }
+if (!SID) { console.error("usage: gearbox-tune.mjs <session-id> [--host <AppName>]"); process.exit(1); }
+// The app running the Claude session (captured at launch) — the MAIN gear types /model into it.
+const hi = process.argv.indexOf("--host");
+const HOST = hi > -1 ? process.argv.slice(hi + 1).join(" ").trim() : "";
 
 const HOME = homedir();
 const SESSIONS_DIR = join(HOME, ".claude", "gearbox", "sessions");
@@ -45,22 +49,41 @@ function mkAspect(id) {
   const u = CATALOG.find((c) => c.id === id) || { desc: "", model: "sonnet", effort: "medium" };
   return { id, model: u.model, effort: u.effort, ultracode: !!u.ultra, description: u.desc ? u.desc + "." : "" };
 }
+function settingsModel() {
+  try { return JSON.parse(readFileSync(join(HOME, ".claude", "settings.json"), "utf8")).model || null; } catch { return null; }
+}
+function restoreSettingsModel(prev) {
+  try {
+    const p = join(HOME, ".claude", "settings.json");
+    const j = JSON.parse(readFileSync(p, "utf8"));
+    if (prev && j.model !== prev) { j.model = prev; writeFileSync(p, JSON.stringify(j, null, 2) + "\n"); }
+  } catch {}
+}
 function load() {
+  let st = null;
   try {
     const p = JSON.parse(readFileSync(FILE, "utf8"));
     if (Array.isArray(p.aspects) && p.aspects.length) {
-      return { on: p.on !== false, name: p.name || "custom",
+      st = { on: p.on !== false, name: p.name || "custom", main: p.main || null,
         aspects: p.aspects.map((a) => ({ id: a.id || "part",
           model: MODELS.includes(a.model) ? a.model : "sonnet",
           effort: EFFORTS.includes(a.effort) ? a.effort : "medium",
           ultracode: !!a.ultracode, description: a.description || "" })) };
     }
   } catch {}
-  try {
-    const t = JSON.parse(readFileSync(DEFAULT_PROFILE, "utf8"));
-    return { on: true, name: t.name || "balanced", aspects: t.aspects.map((a) => ({ ...a })) };
-  } catch {}
-  return { on: true, name: "balanced", aspects: ["planning", "exploration", "research", "implementation", "code review"].map(mkAspect) };
+  if (!st) {
+    try {
+      const t = JSON.parse(readFileSync(DEFAULT_PROFILE, "utf8"));
+      st = { on: true, name: t.name || "balanced", main: null, aspects: t.aspects.map((a) => ({ ...a })) };
+    } catch {
+      st = { on: true, name: "balanced", main: null, aspects: ["planning", "exploration", "research", "implementation", "code review"].map(mkAspect) };
+    }
+  }
+  if (!st.main || !MODELS.includes(st.main.model)) {
+    const d = settingsModel();
+    st.main = { model: MODELS.includes(d) ? d : "opus[1m]" };
+  }
+  return st;
 }
 function save() {
   mkdirSync(SESSIONS_DIR, { recursive: true });
@@ -79,7 +102,49 @@ const effIdx = (a) => EFFORTS.indexOf(a.ultracode ? "xhigh" : a.effort);
 const pad = (s, n) => { s = String(s); return s.length >= n ? s.slice(0, n) : s + " ".repeat(n - s.length); };
 
 let st = load();
-let sel = 0, savedAt = 0;
+let sel = 0, savedAt = 0, hint = "", injectTimer = null;
+
+// MAIN gear: types "/model <alias>" + Enter into the app running the Claude session
+// (the ShiftCC trick, without tmux). Debounced so you can slide freely through gears.
+function scheduleInject() {
+  clearTimeout(injectTimer);
+  injectTimer = setTimeout(injectModel, 700);
+}
+function injectModel() {
+  const model = st.main.model;
+  if (process.platform !== "darwin" || !HOST || HOST === "Terminal") {
+    hint = `type  /model ${model}  in Claude to apply the engine`; draw(); return;
+  }
+  const prevDefault = settingsModel(); // /model may persist as default; we put it back
+  // target by PROCESS name (Warp's process is e.g. "stable"), not app bundle name
+  const scr = `tell application "System Events"
+  set frontmost of process "${HOST}" to true
+  delay 0.3
+  keystroke "/model ${model}"
+  delay 0.15
+  key code 36
+  delay 0.3
+  set frontmost of process "Terminal" to true
+end tell`;
+  execFile("osascript", ["-e", scr], (err) => {
+    if (err) hint = "⚠ allow Accessibility for Terminal: System Settings → Privacy & Security → Accessibility";
+    else {
+      hint = `engine → ${model}   (sent /model to ${HOST})`;
+      setTimeout(() => restoreSettingsModel(prevDefault), 2500);
+    }
+    draw();
+  });
+}
+
+function shaftFor(model, cur) {
+  const mi = MODELS.indexOf(model);
+  let s = "";
+  for (let k = 0; k < MODELS.length; k++) {
+    s += k === mi ? A.amber + "◉" + A.reset : A.faint + "①②③④⑤"[k] + A.reset;
+    if (k < MODELS.length - 1) s += A.faint + "──" + A.reset;
+  }
+  return s;
+}
 
 function draw() {
   const out = [];
@@ -90,14 +155,16 @@ function draw() {
   out.push("  " + A.faint + "─".repeat(72) + A.reset);
   out.push("  " + A.faint + "gears:  ①fable  ②opus[1m]  ③opus  ④sonnet  ⑤haiku     (① strongest·costliest)" + A.reset);
   out.push("");
+  // row 0 — MAIN engine (the conversation itself; applied by typing /model into the session)
+  {
+    const cur = sel === 0;
+    const name = (cur ? A.inv + A.bold : A.grey) + " " + pad("MAIN · engine", 15) + A.reset;
+    const marker = cur ? A.amber + "▶" + A.reset : " ";
+    out.push(` ${marker}${name} ${shaftFor(st.main.model, cur)}  ${(cur ? A.white : A.grey) + pad(st.main.model, 9) + A.reset} ${A.faint}← → shifts the conversation via /model${A.reset}`);
+  }
+  out.push("  " + A.faint + "─".repeat(72) + A.reset);
   st.aspects.forEach((a, i) => {
-    const cur = i === sel;
-    const mi = MODELS.indexOf(a.model);
-    let shaft = "";
-    for (let k = 0; k < MODELS.length; k++) {
-      shaft += k === mi ? A.amber + "◉" + A.reset : A.faint + "①②③④⑤"[k] + A.reset;
-      if (k < MODELS.length - 1) shaft += A.faint + "──" + A.reset;
-    }
+    const cur = i + 1 === sel;
     const ei = effIdx(a);
     let rev = "";
     for (let k = 0; k < EFFORTS.length; k++) rev += (k <= ei ? revColor(ei) + "▰" : A.faint + "▱") + A.reset;
@@ -105,12 +172,13 @@ function draw() {
     const turbo = a.ultracode ? "  " + A.orange + "⊙ TURBO" + A.reset : "";
     const name = (cur ? A.inv + A.bold : A.grey) + " " + pad(a.id, 15) + A.reset;
     const marker = cur ? A.amber + "▶" + A.reset : " ";
-    out.push(` ${marker}${name} ${shaft}  ${(cur ? A.white : A.grey) + pad(a.model, 9) + A.reset} ${rev} ${(cur ? A.white : A.grey) + pad(eff, 6) + A.reset}${turbo}`);
+    out.push(` ${marker}${name} ${shaftFor(a.model, cur)}  ${(cur ? A.white : A.grey) + pad(a.model, 9) + A.reset} ${rev} ${(cur ? A.white : A.grey) + pad(eff, 6) + A.reset}${turbo}`);
   });
   out.push("");
   out.push("  " + A.faint + "─".repeat(72) + A.reset);
-  out.push("  " + A.faint + "↑↓ part   ←→ gear (← stronger)   -/+ rev   t turbo   a add   x remove" + A.reset);
-  out.push("  " + A.faint + "o on/off   q close      changes apply to the session on its next message" + A.reset);
+  out.push("  " + A.faint + "↑↓ row   ←→ gear (← stronger)   -/+ rev   t turbo   a add   x remove" + A.reset);
+  out.push("  " + A.faint + "o on/off   q close      sub-gears apply next message · MAIN applies instantly" + A.reset);
+  if (hint) out.push("  " + A.yellow + hint + A.reset);
   process.stdout.write("\x1b[2J\x1b[H" + out.join("\n") + "\n");
 }
 
@@ -128,19 +196,29 @@ function quit() {
 }
 
 process.stdin.on("data", (key) => {
-  const a = st.aspects[sel];
+  const ROWS = st.aspects.length + 1; // row 0 = MAIN engine
+  const onMain = sel === 0;
+  const a = onMain ? null : st.aspects[sel - 1];
   switch (key) {
     case "q": case "\x03": quit(); break;
-    case "\x1b[A": case "k": sel = (sel - 1 + st.aspects.length) % st.aspects.length; break;
-    case "\x1b[B": case "j": sel = (sel + 1) % st.aspects.length; break;
-    case "\x1b[D": case "h": { const i = MODELS.indexOf(a.model); if (i > 0) { a.model = MODELS[i - 1]; st.on = true; save(); } break; }               // ← stronger
-    case "\x1b[C": case "l": { const i = MODELS.indexOf(a.model); if (i < MODELS.length - 1) { a.model = MODELS[i + 1]; st.on = true; save(); } break; } // → cheaper
-    case "+": case "=": if (!a.ultracode) { const i = EFFORTS.indexOf(a.effort); if (i < EFFORTS.length - 1) { a.effort = EFFORTS[i + 1]; st.on = true; save(); } } break;
-    case "-": case "_": if (!a.ultracode) { const i = EFFORTS.indexOf(a.effort); if (i > 0) { a.effort = EFFORTS[i - 1]; st.on = true; save(); } } break;
-    case "t": a.ultracode = !a.ultracode; st.on = true; save(); break;
+    case "\x1b[A": case "k": sel = (sel - 1 + ROWS) % ROWS; hint = ""; break;
+    case "\x1b[B": case "j": sel = (sel + 1) % ROWS; hint = ""; break;
+    case "\x1b[D": case "h": { // ← stronger
+      if (onMain) { const i = MODELS.indexOf(st.main.model); if (i > 0) { st.main.model = MODELS[i - 1]; save(); scheduleInject(); } }
+      else { const i = MODELS.indexOf(a.model); if (i > 0) { a.model = MODELS[i - 1]; st.on = true; save(); } }
+      break;
+    }
+    case "\x1b[C": case "l": { // → cheaper
+      if (onMain) { const i = MODELS.indexOf(st.main.model); if (i < MODELS.length - 1) { st.main.model = MODELS[i + 1]; save(); scheduleInject(); } }
+      else { const i = MODELS.indexOf(a.model); if (i < MODELS.length - 1) { a.model = MODELS[i + 1]; st.on = true; save(); } }
+      break;
+    }
+    case "+": case "=": if (a && !a.ultracode) { const i = EFFORTS.indexOf(a.effort); if (i < EFFORTS.length - 1) { a.effort = EFFORTS[i + 1]; st.on = true; save(); } } break;
+    case "-": case "_": if (a && !a.ultracode) { const i = EFFORTS.indexOf(a.effort); if (i > 0) { a.effort = EFFORTS[i - 1]; st.on = true; save(); } } break;
+    case "t": if (a) { a.ultracode = !a.ultracode; st.on = true; save(); } break;
     case "o": st.on = !st.on; save(); break;
-    case "a": { const next = CATALOG.find((c) => !st.aspects.some((x) => x.id === c.id)); if (next) { st.aspects.push(mkAspect(next.id)); sel = st.aspects.length - 1; st.on = true; save(); } break; }
-    case "x": if (st.aspects.length > 1) { st.aspects.splice(sel, 1); sel = Math.max(0, sel - 1); save(); } break;
+    case "a": { const next = CATALOG.find((c) => !st.aspects.some((x) => x.id === c.id)); if (next) { st.aspects.push(mkAspect(next.id)); sel = st.aspects.length; st.on = true; save(); } break; }
+    case "x": if (a && st.aspects.length > 1) { st.aspects.splice(sel - 1, 1); sel = Math.max(1, sel - 1); save(); } break;
     default: return;
   }
   draw();
