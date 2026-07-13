@@ -7,7 +7,8 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { homedir } from "node:os";
+import { homedir, platform } from "node:os";
+import { spawn } from "node:child_process";
 
 const HOME = homedir();
 const GEARBOX_HOME = join(HOME, ".claude", "gearbox");
@@ -115,11 +116,13 @@ function render(sid, st, note) {
     L.push(`  ${pad(a.id, 15)} ${shaft}  ${pad(a.model, 9)} rev ${rev} ${pad(eff, 6)}${turbo}`);
   }
   L.push("");
-  L.push("  ↑↓ + Enter in the menus below to shift · plain words work too · /gearbox off to stop");
+  L.push("  SHIFT →  /gearbox tune   opens the shifter window (real keys: ↑↓ ←→ -/+ t)");
+  L.push("  plain words work too (“put implementation on fable”) · /gearbox off to stop");
   if (note) L.push("", "» " + note);
   return L.join("\n");
 }
 function pad(s, n) { s = String(s); return s.length >= n ? s : s + " ".repeat(n - s.length); }
+function q(s) { return "'" + String(s).replace(/'/g, "'\\''") + "'"; }
 
 // ---- main ----
 const [, , sid, sub, ...rest] = process.argv;
@@ -131,6 +134,24 @@ const cmd = (sub || "show").toLowerCase();
 try {
   switch (cmd) {
     case "show": case "status": break;
+    case "tune": {
+      // Open the shifter in its own small terminal window (keystrokes work there),
+      // bound to THIS session. Auto-saves live; the session reads it next message.
+      if (!st) { st = seedProfile(); st.on = true; save(sid, st); }
+      const tunePath = join(SCRIPT_DIR, "gearbox-tune.mjs");
+      if (platform() === "darwin") {
+        const shellCmd = `node ${q(tunePath)} ${q(sid)}`;
+        const osa = `tell application "Terminal"
+  activate
+  do script "${shellCmd.replace(/"/g, '\\"')}"
+end tell`;
+        spawn("osascript", ["-e", osa], { detached: true, stdio: "ignore" }).unref();
+        note = "Shifter window opened (⚙ GEARBOX) — drive it with real keys: ↑↓ part · ←→ gear · -/+ rev · t turbo · q close. Changes apply to this session on your next message.";
+      } else {
+        note = `Open a terminal and run:  node ${q(tunePath)} ${q(sid)}  — real-keys shifter for this session.`;
+      }
+      break;
+    }
     case "on":
       if (!st) st = seedProfile();
       st.on = true; save(sid, st); note = "Gearbox is ON for this session. Change a gear any time; it applies on your next message."; break;

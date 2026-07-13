@@ -17,10 +17,10 @@ are untouched. **Update:** `/plugin marketplace update claude-gearbox` → `/plu
   gears →  ①fable  ②opus[1m]  ③opus  ④sonnet  ⑤haiku   (① strongest · costliest)
 ```
 
-Drive it — `/gearbox` opens the console plus an **arrow-key tuner** (Claude Code's native menus):
-**↑↓** pick a part → pick an action (*Shift gear · Rev · Turbo · Done*) → **Enter**; gear options
-preview the shaft position; the console re-renders after every shift. No syntax to learn.
-Plain words work too (*"put implementation on fable"*). `/gearbox on` / `/gearbox off` toggle it.
+Drive it — **`/gearbox tune`** opens the shifter: a small ⚙ GEARBOX terminal window bound to this
+session, with real keys (↑↓ part · ←→ gear · -/+ rev · t turbo · q close). Every keypress auto-saves
+live; the session picks it up on its next message. `/gearbox` shows the console in chat; plain words
+work too (*"put implementation on fable"*); `/gearbox on` / `off` toggle it.
 
 Change a gear any time; it applies on your **next message**. Each Claude session is independent —
 turning it on in one shell doesn't touch another.

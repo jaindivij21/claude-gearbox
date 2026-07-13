@@ -1,27 +1,11 @@
 ---
-description: Open your per-session gearbox — an arrow-key shifter for which model & effort Claude uses for each part of a task.
-argument-hint: [on | off]
+description: Your per-session gearbox — /gearbox tune opens a real-keys shifter window; on/off; console view.
+argument-hint: [tune | on | off]
 ---
 !`node "${CLAUDE_PLUGIN_ROOT}/bin/gearbox-cli.mjs" "${CLAUDE_SESSION_ID}" $ARGUMENTS`
 
-Above is this session's Gearbox console (the command already ran — never re-run it just to view). Follow this flow exactly:
+Above is this session's Gearbox console — the command already ran, and if the args included `tune`, the shifter window has ALREADY been opened. Your only job:
 
-1. Print the console verbatim in a code block. No commentary.
-2. If it shows OFF: stop (it says how to turn on).
-3. If ON: enter **TUNE MODE** — loop until the user presses Esc (a rejected/cancelled question means "done": print the final console and stop).
-
-   **ROUND A — grab a shifter.** One single-select question:
-   - question: "Grab a shifter  (Esc when done)" · header: "Shifter"
-   - one option per part (max 4; fold extras into Other). label = the part name; description = its current "model · effort(· TURBO)"; **preview = the full console code block with that part's row marked with `▶`** — so arrowing through parts highlights each row in the preview pane.
-
-   **ROUND B — work the gear assembly** for the grabbed part. One call, three single-select questions:
-   - "Gear" (the model): options `fable`, `opus[1m]`, `opus`, `sonnet` (haiku via Other). **Each option's preview = that part's shaft with the knob slid into that slot**, e.g. for implementation:
-     `implementation   ◉──②──③──④──⑤    fable      ① strongest·costliest`
-     `implementation   ①──◉──③──④──⑤    opus[1m]`
-     …so arrowing up/down visibly slides the knob along the shaft. Put the current gear FIRST in the options and mark it "(current)".
-   - "Rev" (the effort): options `low`, `medium`, `high`, `xhigh` (max via Other); each preview = the rev bar at that level, e.g. `rev ▰▰▰▱▱  high`. Current level first, marked "(current)".
-   - "Turbo": options `⊙ ON — ultracode` (xhigh + decompose → fan out → verify) and `off`.
-
-   **Apply** with: `node "${CLAUDE_PLUGIN_ROOT}/bin/gearbox-cli.mjs" "${CLAUDE_SESSION_ID}" set <part> <model> <effort>` then, if turbo changed, `… turbo <part> on|off`. Print the updated console verbatim in a code block and loop back to ROUND A.
-
-4. Plain words also work at any point ("put implementation on fable", "add a debugging part", "turn it off") — apply via the same CLI (`set|effort|shift|rev|turbo|add|rm|on|off`) and print the console. Never make the user type CLI syntax.
+1. Print the console verbatim in a code block (including any » note under it). Nothing else — no explanations, no menus, no questions.
+2. If the user asks for a change in plain words ("put implementation on fable", "add a debugging part", "turn it off"), apply it with `node "${CLAUDE_PLUGIN_ROOT}/bin/gearbox-cli.mjs" "${CLAUDE_SESSION_ID}" <cmd>` (`set <part> <model> [effort]` | `effort <part> <level>` | `turbo <part> [on|off]` | `add <part>` | `rm <part>` | `tune` | `on` | `off`) and print the returned console verbatim. Models strong→cheap: fable, opus[1m], opus, sonnet, haiku. Effort low→high: low, medium, high, xhigh, max.
+3. If the user asks to tune/shift/adjust interactively, run the `tune` subcommand (it opens the shifter window) — do not simulate a UI in chat.

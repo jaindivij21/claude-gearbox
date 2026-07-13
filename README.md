@@ -56,22 +56,26 @@ it off. `/gearbox` any time shows whether this session is ON or OFF.
 
 ## Use
 
-`/gearbox` opens the console **plus an interactive tuner you drive with your keyboard** — Claude Code's
-native arrow-key menus:
+**`/gearbox tune` opens the shifter** — a small ⚙ GEARBOX terminal window, summoned from inside your
+Claude session and bound to it. It's a real TUI, so **keystrokes actually work**:
 
-1. **↑↓** pick a part → **↑↓** pick an action (*Shift gear · Rev · Turbo · Done*) → **Enter**.
-2. Shifting a gear shows each option with a live preview of the shaft (`◉──②──③──④──⑤ fable`);
-   **Enter** slots the knob in.
-3. The console re-renders after every shift; keep tuning until you pick **Done**.
+```
+↑ ↓   pick a part            ← →   slide the gear (left = stronger, toward fable)
+- +   rev the effort         t     turbo (ultracode)        o  on/off    q  close
+```
 
-No syntax to learn, nothing to type. (Plain words work too — *"put implementation on fable"* — and
-`/gearbox on` / `/gearbox off` toggle it.)
+Every keypress **auto-saves live** — no submit step. Your Claude session picks the change up on its
+next message. Close it with `q` whenever; reopen any time with `/gearbox tune`.
 
-> Why menus and not raw keystrokes? Claude Code doesn't give plugins a live TTY — its arrow-key
-> menus are the only keyboard-interactive surface a plugin gets, so the tuner is built on them.
+Also: `/gearbox` shows the console in chat · `/gearbox on` / `off` toggle it · plain words work too
+(*"put implementation on fable"*).
 
-Then just work. Claude runs each part in the gear you set; change a gear and it applies on your next
-message. Another Claude shell is unaffected.
+> Why a separate small window? Programs running inside the Claude chat get no keyboard (no TTY —
+> keystrokes go to Claude's own input). The shifter runs in its own window so the keys are real,
+> but it's launched from, and scoped to, the session you called it from — like ShiftCC, minus the
+> menu-bar app. macOS will ask once to allow controlling Terminal — click Allow.
+
+Then just work. Claude runs each part in the gear you set; another Claude shell is unaffected.
 
 ## Parts and gears
 

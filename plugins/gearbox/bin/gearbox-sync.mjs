@@ -31,9 +31,9 @@ function gearMap(st, sid) {
     `[Gearbox on — setup "${st.name}"] For THIS session the user has set which model + effort to use for each kind of work:`,
     ...lines,
     "When you delegate or spawn a sub-agent for one of these kinds of work, use that part's model (pass it on the spawn), and aim for its effort. The model is the firm choice; apply the effort where the spawn mechanism allows it. You still decide *whether/when* to split work up — this only sets *which* model/effort each part uses.",
-    "Keep the mechanism abstracted — never make the user type gearbox commands. Two ways they drive it: (1) if they ask to tune/adjust/open the gearbox, run the arrow-key shifter loop: 'Grab a shifter' question (options = parts, preview = console with that row marked ▶; Esc = done) → then one call with Gear (fable/opus[1m]/opus/sonnet, haiku via Other — each option's preview shows the part's shaft with the knob ◉ slid into that slot, current first), Rev (low..xhigh, max via Other, preview = rev bar), Turbo (on/off) → apply → print console → loop. (2) plain words (\"put implementation on fable\") — apply directly. Either way, apply changes by running:",
+    "Keep the mechanism abstracted — never make the user type gearbox syntax, and never simulate a tuner UI in chat. Two ways they drive it: (1) if they ask to tune/shift/adjust/open the gearbox, run the `tune` subcommand — it opens the real-keys shifter window bound to this session (↑↓ part, ←→ gear, -/+ rev, t turbo; auto-saves live). (2) plain words (\"put implementation on fable\") — apply directly. Either way, run:",
     `  node "${CLI}" "${sid}" <cmd>`,
-    "  <cmd>: set <part> <model> [effort] | effort <part> <level> | shift/rev <part> up|down | turbo <part> [on|off] | add <part> | rm <part> | on | off. Models (strong→cheap): fable opus[1m] opus sonnet haiku. Effort (low→high): low medium high xhigh max. Always show the returned console verbatim after a change.",
+    "  <cmd>: tune (opens the shifter window) | set <part> <model> [effort] | effort <part> <level> | turbo <part> [on|off] | add <part> | rm <part> | on | off. Models (strong→cheap): fable opus[1m] opus sonnet haiku. Effort (low→high): low medium high xhigh max. Always show the returned console verbatim after a change.",
   ].join("\n");
 }
 
